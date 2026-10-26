@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ALL_STUDIO_AGENTS,
   generateStudioSprintReport,
@@ -8,12 +8,20 @@ import { AgentSpec, DepartmentId, StudioSprintReport } from './studio/types';
 import { StudioCommandView } from './components/StudioCommandView';
 import { AgentRosterView } from './components/AgentRosterView';
 import { OrchestratorsView } from './components/OrchestratorsView';
-import { GitHubRepoView } from './components/GitHubRepoView';
+import { CloudGamePlayerView } from './components/CloudGamePlayerView';
+import { ExternalLink, Gamepad2 } from 'lucide-react';
 
-type ActiveTab = 'command' | 'roster' | 'orchestrators' | 'github';
+type ActiveTab = 'command' | 'roster' | 'orchestrators' | 'play';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('github');
+  const isStandalonePlayTab =
+    typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).get('play') === 'true' ||
+      window.location.pathname === '/play');
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    isStandalonePlayTab ? 'play' : 'command'
+  );
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentId | 'all'>('all');
   const [selectedAgent, setSelectedAgent] = useState<AgentSpec>(ALL_STUDIO_AGENTS[0]);
 
@@ -21,47 +29,64 @@ export default function App() {
     generateStudioSprintReport()
   );
   const [studioHeadAnalysis, setStudioHeadAnalysis] = useState<string>(
-    'Studio Head Marcus Vance (NL-001, gemini-4-argon) and Creative Director Elena Rostova (NL-002) decomposed your updated Founder Directive across all 12 Team Orchestrators and 150 specialist agents: (1) Deep Noir Detective Direction + True Batman: Arkham Successor Gameplay — 100% faithful to "Batman: The Long Halloween" canon with Batman as sole playable hero, fusing multi-layer Holiday crime-scene forensics and Caseboard deduction with next-gen Arkham Freeflow v4 combat, Fear Predator stealth, and Grapnel-Boost-to-Cape-Glide traversal; (2) Collector-Grade 3D Character Translation — NL-059 sources an ultra-detailed 92k-triangle Batman rig from top 3D repositories while Character Art (NL-039..NL-050) translates Tim Sale’s panels like master Prime-1 statue sculptors into 84k+ triangle rigs with sub-millimeter pore, wool-pinstripe, and leather-stitch normal maps so there is zero quality gap between sourced and custom characters; (3) Jaw-Dropping Cel-Shaded Graphic Novel Cohesion — every character and Gotham street shares our Hybrid PBR + Stepped Chiaroscuro Cel-Shader with dynamic sumi-ink contours, paired with 2.5D flipping comic-panel cutscenes (zero AI video slop); and (4) Cloud-Cached Native AAA Browser Streaming (Zero Three.js) — 92% pre-warmed NVMe pakchunk cache streamed at 4K 60fps via WebRTC.'
+    'Studio Head Marcus Vance (NL-001, gemini-4-argon) and Creative Director Elena Rostova (NL-002) are ready to execute your Founder Directive across all 12 Team Orchestrators and 150 specialist agents. Dispatch your prompt above to watch live agent execution logs, interject at any point to steer any department or agent in a new direction, store the compiled IoStore pakchunks on the cloud, and launch the playable game in a new browser tab.'
   );
-  const [executionMode, setExecutionMode] = useState<string>('Hierarchy Active (NL-001 -> 12 Teams -> 150 Agents)');
-  const [isRunningPrompt, setIsRunningPrompt] = useState<boolean>(false);
+  const [cloudStorageProvider, setCloudStorageProvider] = useState<string>(
+    'Novice Cloud Edge NVMe Cluster (US-East / Global WebRTC CDN — Auto-Provisioned)'
+  );
+  const [founderSteeringHistory, setFounderSteeringHistory] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const savedSteer = localStorage.getItem('novice_labs_steering_history');
+      if (savedSteer) {
+        const parsed = JSON.parse(savedSteer);
+        if (Array.isArray(parsed)) setFounderSteeringHistory(parsed);
+      }
+      const savedStorage = localStorage.getItem('novice_labs_cloud_storage');
+      if (savedStorage) setCloudStorageProvider(savedStorage);
+    } catch {
+      // Ignore storage access restrictions
+    }
+  }, []);
+
+  const handleAddFounderSteering = (note: string) => {
+    setFounderSteeringHistory((prev) => {
+      const next = [...prev, note];
+      try {
+        localStorage.setItem('novice_labs_steering_history', JSON.stringify(next));
+      } catch {
+        // Ignore storage error
+      }
+      return next;
+    });
+  };
+
+  const handleSelectCloudStorage = (provider: string) => {
+    setCloudStorageProvider(provider);
+    try {
+      localStorage.setItem('novice_labs_cloud_storage', provider);
+    } catch {
+      // Ignore storage error
+    }
+  };
 
   const summary = getStudioSummaryMetrics();
 
-  const handleDispatchPrompt = async (params: {
-    projectTitle: string;
-    genre: string;
-    setting: string;
-    founderPrompt: string;
-  }) => {
-    setIsRunningPrompt(true);
-    try {
-      const response = await fetch('/api/studio/prompt-studio', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-      const data = await response.json();
-      if (data.report) {
-        setSprintReport(data.report);
-      }
-      if (data.studioHeadAnalysis) {
-        setStudioHeadAnalysis(data.studioHeadAnalysis);
-      }
-      if (data.mode) {
-        setExecutionMode(data.mode);
-      }
-    } catch {
-      const fallback = generateStudioSprintReport(
-        params.projectTitle,
-        params.genre,
-        params.setting
-      );
-      setSprintReport(fallback);
-    } finally {
-      setIsRunningPrompt(false);
-    }
-  };
+  // If opened in a new browser tab via /?play=true, launch directly into the full-viewport playable game with zero steps required!
+  if (isStandalonePlayTab && activeTab === 'play') {
+    return (
+      <CloudGamePlayerView
+        projectTitle={sprintReport.projectTitle}
+        cloudStorageProvider={cloudStorageProvider}
+        founderSteeringHistory={founderSteeringHistory}
+        onExitToStudio={() => {
+          window.history.replaceState({}, '', '/');
+          setActiveTab('command');
+        }}
+      />
+    );
+  }
 
   const handleSelectAgentAndJump = (agent: AgentSpec) => {
     setSelectedAgent(agent);
@@ -93,8 +118,11 @@ export default function App() {
           Novice Labs
         </a>
 
-        {/* Zone 2: 4 concise single-line text navigation links */}
-        <nav aria-label="Primary Navigation" className="flex items-center gap-6 text-sm font-medium text-slate-300 overflow-x-auto">
+        {/* Zone 2: Concise single-line navigation links */}
+        <nav
+          aria-label="Primary Navigation"
+          className="flex items-center gap-6 text-sm font-medium text-slate-300 overflow-x-auto"
+        >
           <button
             type="button"
             onClick={() => setActiveTab('command')}
@@ -104,7 +132,7 @@ export default function App() {
                 : ''
             }`}
           >
-            Studio Command
+            Studio Command & Live Logs
           </button>
           <button
             type="button"
@@ -130,26 +158,29 @@ export default function App() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('github')}
+            onClick={() => setActiveTab('play')}
             className={`hover:text-white transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 ${
-              activeTab === 'github'
-                ? 'text-amber-400 border-b-2 border-amber-400 font-semibold'
+              activeTab === 'play'
+                ? 'text-emerald-400 border-b-2 border-emerald-400 font-semibold'
                 : ''
             }`}
           >
-            GitHub Repo
+            Cloud Game Runtime
           </button>
         </nav>
 
-        {/* Zone 3: 1 primary action */}
+        {/* Zone 3: 1 primary action — Instant Launch in New Browser Tab */}
         <div className="flex items-center shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('github')}
-            className="px-4 py-2 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          <a
+            href="/?play=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
-            Publish Public Repo
-          </button>
+            <Gamepad2 className="w-3.5 h-3.5" />
+            <span>Launch Game in New Tab</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
         </div>
       </header>
 
@@ -163,9 +194,9 @@ export default function App() {
             </div>
           </div>
           <div>
-            <div className="text-slate-400">Hierarchical Governance</div>
+            <div className="text-slate-400">Hierarchical Governance & Live Steering</div>
             <div className="font-mono font-bold text-base text-slate-100 tabular-nums mt-0.5">
-              1 Studio Head → {summary.teamOrchestrators} Team Orchestrators
+              NL-001 → {summary.teamOrchestrators} Teams → Founder Override Active
             </div>
           </div>
           <div>
@@ -178,9 +209,9 @@ export default function App() {
             </div>
           </div>
           <div>
-            <div className="text-slate-400">Repository & Deployment Target</div>
-            <div className="font-mono font-bold text-base text-emerald-400 tabular-nums mt-0.5">
-              Novice-Labs (Public GitHub · 188 Files · Vercel Ready)
+            <div className="text-slate-400">Cloud Storage & Instant Browser Stream</div>
+            <div className="font-mono font-bold text-base text-emerald-400 tabular-nums mt-0.5 truncate">
+              {cloudStorageProvider.split('(')[0].trim()}
             </div>
           </div>
         </div>
@@ -191,12 +222,16 @@ export default function App() {
         {activeTab === 'command' && (
           <StudioCommandView
             sprintReport={sprintReport}
+            onUpdateSprintReport={setSprintReport}
             studioHeadAnalysis={studioHeadAnalysis}
-            executionMode={executionMode}
-            isRunningPrompt={isRunningPrompt}
-            onDispatchPrompt={handleDispatchPrompt}
+            onUpdateStudioHeadAnalysis={setStudioHeadAnalysis}
+            cloudStorageProvider={cloudStorageProvider}
+            onSelectCloudStorageProvider={handleSelectCloudStorage}
+            founderSteeringHistory={founderSteeringHistory}
+            onAddFounderSteering={handleAddFounderSteering}
             onSelectAgent={handleSelectAgentAndJump}
             onNavigateToRosterDept={handleSelectDepartmentAndJump}
+            onLaunchGameInline={() => setActiveTab('play')}
           />
         )}
 
@@ -216,7 +251,14 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'github' && <GitHubRepoView />}
+        {activeTab === 'play' && (
+          <CloudGamePlayerView
+            projectTitle={sprintReport.projectTitle}
+            cloudStorageProvider={cloudStorageProvider}
+            founderSteeringHistory={founderSteeringHistory}
+            onExitToStudio={() => setActiveTab('command')}
+          />
+        )}
       </main>
 
       {/* Quiet Footer */}
