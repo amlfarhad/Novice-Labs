@@ -4,12 +4,18 @@ import {
   generateStudioSprintReport,
   getStudioSummaryMetrics,
 } from './studio/studioEngine';
-import { AgentSpec, DepartmentId, StudioSprintReport } from './studio/types';
+import {
+  AgentSpec,
+  DepartmentId,
+  DepartmentOutput,
+  StudioSprintReport,
+  ThreeDAssetPipelineEntry,
+} from './studio/types';
 import { StudioCommandView } from './components/StudioCommandView';
 import { AgentRosterView } from './components/AgentRosterView';
 import { OrchestratorsView } from './components/OrchestratorsView';
 import { CloudGamePlayerView } from './components/CloudGamePlayerView';
-import { ExternalLink, Gamepad2 } from 'lucide-react';
+import { ExternalLink, Gamepad2, Sparkles } from 'lucide-react';
 
 type ActiveTab = 'command' | 'roster' | 'orchestrators' | 'play';
 
@@ -25,14 +31,20 @@ export default function App() {
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentId | 'all'>('all');
   const [selectedAgent, setSelectedAgent] = useState<AgentSpec>(ALL_STUDIO_AGENTS[0]);
 
-  const [sprintReport, setSprintReport] = useState<StudioSprintReport>(() =>
+  // Base blueprint reference used strictly as templates when each department executes from scratch
+  const [baseBlueprintReport] = useState<StudioSprintReport>(() =>
     generateStudioSprintReport()
   );
-  const [studioHeadAnalysis, setStudioHeadAnalysis] = useState<string>(
-    'Studio Head Marcus Vance (NL-001, gemini-4-argon) and Creative Director Elena Rostova (NL-002) are ready to execute your Founder Directive across all 12 Team Orchestrators and 150 specialist agents. Dispatch your prompt above to watch live agent execution logs, interject at any point to steer any department or agent in a new direction, store the compiled IoStore pakchunks on the cloud, and launch the playable game in a new browser tab.'
-  );
+
+  // Clean-slate state before clicking Dispatch: 0 departments written, 0 3D assets built, 0 files compiled
+  const [writtenDepartments, setWrittenDepartments] = useState<DepartmentOutput[]>([]);
+  const [writtenThreeDAssets, setWrittenThreeDAssets] = useState<ThreeDAssetPipelineEntry[]>([]);
+  const [studioHeadAnalysis, setStudioHeadAnalysis] = useState<string | null>(null);
+  const [isGameBuildReady, setIsGameBuildReady] = useState<boolean>(false);
+  const [compiledFilesCount, setCompiledFilesCount] = useState<number>(0);
+
   const [cloudStorageProvider, setCloudStorageProvider] = useState<string>(
-    'Novice Cloud Edge NVMe Cluster (US-East / Global WebRTC CDN — Auto-Provisioned)'
+    'Novice Cloud RTX-6000-Ada Pod Cluster (US-East NVMe + Global WebRTC AV1 Stream)'
   );
   const [founderSteeringHistory, setFounderSteeringHistory] = useState<string[]>([]);
 
@@ -73,13 +85,14 @@ export default function App() {
 
   const summary = getStudioSummaryMetrics();
 
-  // If opened in a new browser tab via /?play=true, launch directly into the full-viewport playable game with zero steps required!
+  // If opened in a new browser tab via /?play=true, launch directly into the full-viewport PS5/RTX-4090 Cloud WebRTC Stream Receiver
   if (isStandalonePlayTab && activeTab === 'play') {
     return (
       <CloudGamePlayerView
-        projectTitle={sprintReport.projectTitle}
+        projectTitle={baseBlueprintReport.projectTitle}
         cloudStorageProvider={cloudStorageProvider}
         founderSteeringHistory={founderSteeringHistory}
+        isGameBuilt={true}
         onExitToStudio={() => {
           window.history.replaceState({}, '', '/');
           setActiveTab('command');
@@ -132,7 +145,7 @@ export default function App() {
                 : ''
             }`}
           >
-            Studio Command & Live Logs
+            Studio Command & Scratch Builder
           </button>
           <button
             type="button"
@@ -165,22 +178,29 @@ export default function App() {
                 : ''
             }`}
           >
-            Cloud Game Runtime
+            Cloud RTX Stream Receiver {isGameBuildReady ? '(Ready)' : '(Awaiting Build)'}
           </button>
         </nav>
 
-        {/* Zone 3: 1 primary action — Instant Launch in New Browser Tab */}
+        {/* Zone 3: Primary action — only active once the 150 agents have compiled the game from scratch */}
         <div className="flex items-center shrink-0">
-          <a
-            href="/?play=true"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            <Gamepad2 className="w-3.5 h-3.5" />
-            <span>Launch Game in New Tab</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          {isGameBuildReady ? (
+            <a
+              href="/?play=true"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-emerald-950/50"
+            >
+              <Gamepad2 className="w-3.5 h-3.5" />
+              <span>Stream RTX Build in New Tab</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-slate-400 bg-slate-900 border border-slate-800 rounded-lg">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>{compiledFilesCount} Files Built · Dispatch Below to Write Game</span>
+            </span>
+          )}
         </div>
       </header>
 
@@ -188,15 +208,15 @@ export default function App() {
       <div className="border-b border-slate-800/80 bg-[#0E1420] px-6 py-3">
         <div className="max-w-[1400px] mx-auto grid grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
           <div>
-            <div className="text-slate-400">Active AAA Studio Headcount</div>
+            <div className="text-slate-400">Scratch Build Compilation Status</div>
             <div className="font-mono font-bold text-base text-slate-100 tabular-nums mt-0.5">
-              {summary.totalAgents} / 150 Agents ({summary.avgUtilization}% Utilized)
+              {writtenDepartments.length} / 12 Depts · {compiledFilesCount} Files Written
             </div>
           </div>
           <div>
             <div className="text-slate-400">Hierarchical Governance & Live Steering</div>
             <div className="font-mono font-bold text-base text-slate-100 tabular-nums mt-0.5">
-              NL-001 → {summary.teamOrchestrators} Teams → Founder Override Active
+              NL-001 → {summary.teamOrchestrators} Teams → {summary.totalAgents} Agents
             </div>
           </div>
           <div>
@@ -209,7 +229,7 @@ export default function App() {
             </div>
           </div>
           <div>
-            <div className="text-slate-400">Cloud Storage & Instant Browser Stream</div>
+            <div className="text-slate-400">Cloud GPU Pod & WebRTC AV1 Stream Target</div>
             <div className="font-mono font-bold text-base text-emerald-400 tabular-nums mt-0.5 truncate">
               {cloudStorageProvider.split('(')[0].trim()}
             </div>
@@ -221,10 +241,17 @@ export default function App() {
       <main className="flex-1 max-w-[1400px] w-full mx-auto px-6 py-8">
         {activeTab === 'command' && (
           <StudioCommandView
-            sprintReport={sprintReport}
-            onUpdateSprintReport={setSprintReport}
+            baseBlueprintReport={baseBlueprintReport}
+            writtenDepartments={writtenDepartments}
+            onSetWrittenDepartments={setWrittenDepartments}
+            writtenThreeDAssets={writtenThreeDAssets}
+            onSetWrittenThreeDAssets={setWrittenThreeDAssets}
             studioHeadAnalysis={studioHeadAnalysis}
             onUpdateStudioHeadAnalysis={setStudioHeadAnalysis}
+            isGameBuildReady={isGameBuildReady}
+            onSetGameBuildReady={setIsGameBuildReady}
+            compiledFilesCount={compiledFilesCount}
+            onSetCompiledFilesCount={setCompiledFilesCount}
             cloudStorageProvider={cloudStorageProvider}
             onSelectCloudStorageProvider={handleSelectCloudStorage}
             founderSteeringHistory={founderSteeringHistory}
@@ -253,9 +280,10 @@ export default function App() {
 
         {activeTab === 'play' && (
           <CloudGamePlayerView
-            projectTitle={sprintReport.projectTitle}
+            projectTitle={baseBlueprintReport.projectTitle}
             cloudStorageProvider={cloudStorageProvider}
             founderSteeringHistory={founderSteeringHistory}
+            isGameBuilt={isGameBuildReady}
             onExitToStudio={() => setActiveTab('command')}
           />
         )}
