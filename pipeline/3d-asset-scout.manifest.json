@@ -1,0 +1,139 @@
+{
+  "pipelineOwner": "NL-059 (Maya Lin-Vance — 3D Model Scout) & NL-110 (Lucas Sterling — glTF Conditioning Engineer)",
+  "targetStandards": {
+    "runtimeFormat": "Cloud Pre-Warmed IoStore Pakchunks + glTF 2.0 (Meshopt + KTX2)",
+    "browserDelivery": "WebRTC Native Cloud GPU Stream (Zero Three.js)",
+    "texelDensity": "10.24 px/cm"
+  },
+  "assetQueue": [
+    {
+      "assetId": "3D-BAT-001",
+      "assetName": "Batman (Sourced Arkham-Successor Tactical Suit, Scalloped Cape & Cel-Ink Shader Rig)",
+      "category": "Hero Character",
+      "assignedScoutAgentId": "NL-059",
+      "assignedTechArtistId": "NL-110",
+      "targetTriangleBudget": 92000,
+      "lodLevels": 4,
+      "textureMaps": [
+        "Albedo_4K",
+        "MicroNormal_KevlarWeave_4K",
+        "ORM_Packed_4K",
+        "CelRamp_Chiaroscuro_2K",
+        "SumiInk_CurvatureMask_4K"
+      ],
+      "formatSpec": "glTF 2.0 / Pakchunk0-Hero (Internet-Sourced Master Rig + 85-Bone Skeleton + 64-Bone Verlet Glide Cape)",
+      "searchKeywords": [
+        "batman arkham knight ultra detail rig gltf",
+        "batman prime1 statue proportion pbr 3d model",
+        "batman cape skeletal mesh fbx"
+      ],
+      "pipelineStatus": "Shader Ready"
+    },
+    {
+      "assetId": "3D-BAT-002",
+      "assetName": "Harvey Dent / Two-Face (Collector-Grade Tim Sale Translation · Dual 52-FACS Rig)",
+      "category": "Hero Character",
+      "assignedScoutAgentId": "NL-041",
+      "assignedTechArtistId": "NL-043",
+      "targetTriangleBudget": 84000,
+      "lodLevels": 4,
+      "textureMaps": [
+        "Albedo_4K",
+        "PoreAndKeloid_MicroNormal_4K",
+        "WoolPinstripe_Aniso_4K",
+        "CelShadow_StepLUT",
+        "Crosshatch_ID_Mask"
+      ],
+      "formatSpec": "glTF 2.0 / Pakchunk1-Cast (Master-Sculpted from Tim Sale Panels · Matches Sourced Batman Micro-Fidelity)",
+      "searchKeywords": [
+        "harvey dent two-face collector statue sculpt reference",
+        "1940s double-breasted pinstriped suit pbr"
+      ],
+      "pipelineStatus": "Shader Ready"
+    },
+    {
+      "assetId": "3D-BAT-003",
+      "assetName": "Selina Kyle / Catwoman & Carmine \"The Roman\" Falcone (Collector-Grade Noir Cast Pack)",
+      "category": "Hero Character",
+      "assignedScoutAgentId": "NL-059",
+      "assignedTechArtistId": "NL-040",
+      "targetTriangleBudget": 82000,
+      "lodLevels": 4,
+      "textureMaps": [
+        "Albedo_4K",
+        "LeatherStitch_SilkWeave_Normal_4K",
+        "ORM_4K",
+        "Fresnel_InkRim_Ramp_2K"
+      ],
+      "formatSpec": "glTF 2.0 / Pakchunk1-Cast (85-Bone Humanoid + Whip Spline IK + Claw-Scar Normal Layer)",
+      "searchKeywords": [
+        "catwoman long halloween purple suit 3d reference",
+        "noir mafia don tuxedo sculpt gltf"
+      ],
+      "pipelineStatus": "Topology Verified"
+    },
+    {
+      "assetId": "3D-BAT-004",
+      "assetName": "Long Halloween Rogue Gallery (Calendar Man, Joker, Solomon Grundy, Scarecrow, Ivy, Hatter)",
+      "category": "Hero Character",
+      "assignedScoutAgentId": "NL-041",
+      "assignedTechArtistId": "NL-048",
+      "targetTriangleBudget": 88000,
+      "lodLevels": 4,
+      "textureMaps": [
+        "Albedo_4K",
+        "Biomechanical_MicroNormal_4K",
+        "ORM_4K",
+        "ComicCel_Halftone_LUT"
+      ],
+      "formatSpec": "glTF 2.0 / Pakchunk1-Rogues (Real-Artist 3D Translations of Tim Sale Silhouettes + Cel-Shaded PBR)",
+      "searchKeywords": [
+        "solomon grundy hulking creature rig",
+        "arkham glass cell calendar man environment"
+      ],
+      "pipelineStatus": "Topology Verified"
+    },
+    {
+      "assetId": "3D-BAT-005",
+      "assetName": "Holiday Killer Forensics Kit (.22 Taped Pistol, Baby-Bottle Silencer & 13 Holiday Trinkets)",
+      "category": "Hard-Surface Weapon/Vehicle",
+      "assignedScoutAgentId": "NL-059",
+      "assignedTechArtistId": "NL-055",
+      "targetTriangleBudget": 32000,
+      "lodLevels": 3,
+      "textureMaps": [
+        "Albedo_4K",
+        " PowderBurn_Fingerprint_Normal_4K",
+        "MetallicRoughness_4K",
+        "InkContour_ID"
+      ],
+      "formatSpec": "glTF 2.0 / Pakchunk3-Detective (Close-Up 4K Forensic Rotation Mesh + Ballistic Trajectory Splines)",
+      "searchKeywords": [
+        "vintage 22 pistol taped grip 3d model",
+        "noir detective crime scene evidence markers pbr"
+      ],
+      "pipelineStatus": "Shader Ready"
+    },
+    {
+      "assetId": "3D-BAT-006",
+      "assetName": "Tim Sale 2.5D Multi-Plane Comic Panel Cutscene Stage & Rain-Drenched Gotham Kit",
+      "category": "Modular Environment",
+      "assignedScoutAgentId": "NL-052",
+      "assignedTechArtistId": "NL-137",
+      "targetTriangleBudget": 54000,
+      "lodLevels": 4,
+      "textureMaps": [
+        "TrimSheet_GothicNoir_4K",
+        "InkPlate_Alpha_4K",
+        "WetCobblestone_ORM_4K",
+        "Halftone_Shadow_LUT"
+      ],
+      "formatSpec": "Cloud IoStore Pakchunk2-GothamNoir (1m Snap-Grid Modular Kit + 2.5D Panel Flip Stage, Pre-Warmed in NVMe RAM)",
+      "searchKeywords": [
+        "gothic gargoyle clocktower modular kit",
+        "2.5d parallax comic panel camera rig"
+      ],
+      "pipelineStatus": "Shader Ready"
+    }
+  ]
+}
