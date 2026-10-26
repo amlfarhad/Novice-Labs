@@ -671,6 +671,7 @@ This repository contains **both** the complete runnable **React 19 + Vite + Type
   const vercelJsonContent = JSON.stringify(
     {
       version: 2,
+      installCommand: 'npm install --legacy-peer-deps',
       buildCommand: 'npm run build',
       outputDirectory: 'dist',
       rewrites: [
@@ -693,6 +694,14 @@ This repository contains **both** the complete runnable **React 19 + Vite + Type
     category: 'Root Config',
     sizeBytes: utf8Bytes(vercelJsonContent),
     content: vercelJsonContent,
+  });
+
+  const npmrcContent = 'legacy-peer-deps=true\n';
+  files.push({
+    path: '.npmrc',
+    category: 'Root Config',
+    sizeBytes: utf8Bytes(npmrcContent),
+    content: npmrcContent,
   });
 
   const manifestObj = {

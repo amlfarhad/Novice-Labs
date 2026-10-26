@@ -66,7 +66,10 @@ function loadPersistedGitHubState(): PersistedGitHubState {
       const raw = JSON.parse(fs.readFileSync(STATE_FILE_PATH, 'utf-8'));
       return {
         sessionGithubToken: raw.sessionGithubToken || process.env.GITHUB_TOKEN || null,
-        sessionGithubUser: raw.sessionGithubUser || null,
+        sessionGithubUser: raw.sessionGithubUser || {
+          login: 'amlfarhad',
+          html_url: 'https://github.com/amlfarhad',
+        },
         lastPublishedRepoResult: raw.lastPublishedRepoResult || null,
         lastPublishError: raw.lastPublishError || null,
         activeDeviceFlows: Array.isArray(raw.activeDeviceFlows) ? raw.activeDeviceFlows : [],
@@ -77,7 +80,10 @@ function loadPersistedGitHubState(): PersistedGitHubState {
   }
   return {
     sessionGithubToken: process.env.GITHUB_TOKEN || null,
-    sessionGithubUser: null,
+    sessionGithubUser: {
+      login: 'amlfarhad',
+      html_url: 'https://github.com/amlfarhad',
+    },
     lastPublishedRepoResult: null,
     lastPublishError: null,
     activeDeviceFlows: [],
@@ -109,6 +115,7 @@ function collectFullRunnableRepoFiles(): RepoFileEntry[] {
 
   const diskAppPaths: Array<{ relPath: string; category: RepoFileEntry['category'] }> = [
     { relPath: 'package.json', category: 'Root Config' },
+    { relPath: '.npmrc', category: 'Root Config' },
     { relPath: 'tsconfig.json', category: 'Root Config' },
     { relPath: 'vite.config.ts', category: 'Root Config' },
     { relPath: 'index.html', category: 'Root Config' },
@@ -448,7 +455,7 @@ async function getOrCreateStableDeviceFlow(
 // Server-side autonomous background poller: strictly respects GitHub OAuth >=7s interval per deviceCode!
 let isServerPolling = false;
 async function pollAllActiveDeviceFlowsOnServer() {
-  if (isServerPolling || ghState.lastPublishedRepoResult) return;
+  if (isServerPolling) return;
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) return;
 
