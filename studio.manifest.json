@@ -1,6 +1,6 @@
 {
   "studioName": "Novice Labs",
-  "architectureVersion": "2.0.0-AAA",
+  "architectureVersion": "3.0.0-AAA-LIVE",
   "totalAgents": 150,
   "totalDepartments": 12,
   "modelArrayPolicy": "ZERO_COST_CUTTING_CAPABILITY_FIRST",
@@ -1437,12 +1437,12 @@
       "id": "NL-109",
       "codeName": "STREAM-POOL",
       "name": "Hanna Lindqvist",
-      "role": "Level Streaming, Virtual Texturing & Memory Pool Engineer",
+      "role": "Level Streaming, 4KB Chunked VFS & OPFS Memory Pool Engineer",
       "departmentId": "engine-rendering-tools",
       "isTeamOrchestrator": false,
       "assignedModel": "gemini-4-argon",
       "tier": "Principal / Senior",
-      "repoFilePath": "agents/09-engine-rendering-tools/NL-109-level-streaming-virtual-texturing-memory-pool-engineer.md"
+      "repoFilePath": "agents/09-engine-rendering-tools/NL-109-level-streaming-4kb-chunked-vfs-opfs-memory-pool-engineer.md"
     },
     {
       "id": "NL-110",
@@ -1503,12 +1503,12 @@
       "id": "NL-115",
       "codeName": "HAL-BRIDGE",
       "name": "Tariq Vance",
-      "role": "Cross-Platform Hardware Abstraction Layer (HAL) Engineer",
+      "role": "wasm64, pthreads Web Worker & WebGPU DX12/Vulkan Translation Engineer",
       "departmentId": "engine-rendering-tools",
       "isTeamOrchestrator": false,
       "assignedModel": "gemini-4-argon",
       "tier": "Specialist",
-      "repoFilePath": "agents/09-engine-rendering-tools/NL-115-cross-platform-hardware-abstraction-layer-hal-engineer.md"
+      "repoFilePath": "agents/09-engine-rendering-tools/NL-115-wasm64-pthreads-web-worker-webgpu-dx12-vulkan-translation-engineer.md"
     },
     {
       "id": "NL-116",

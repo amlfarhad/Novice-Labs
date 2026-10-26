@@ -25,7 +25,13 @@ export type StudioModelId =
 export interface StudioModelSpec {
   id: StudioModelId;
   displayName: string;
-  modality: 'Deep Reasoning & Code' | 'Full-Track Music (Audio)' | 'Short Music/Stinger (Audio)' | 'Voice & Dialogue TTS' | 'Visual Concept & PBR Image' | 'Sub-Second Real-Time Speed';
+  modality:
+    | 'Deep Reasoning & Code'
+    | 'Full-Track Music (Audio)'
+    | 'Short Music/Stinger (Audio)'
+    | 'Voice & Dialogue TTS'
+    | 'Visual Concept & PBR Image'
+    | 'Sub-Second Real-Time Speed';
   orchestratorPolicy: string;
   costPolicyNote: string;
 }
@@ -60,7 +66,7 @@ export interface AgentSpec extends AgentSeed {
   systemPrompt: string;
   repoFilePath: string;
   activeSprintTask: string;
-  utilizationRate: number; // e.g., 94 - 100
+  utilizationRate: number;
 }
 
 export interface DepartmentSpec {
@@ -70,7 +76,7 @@ export interface DepartmentSpec {
   shortName: string;
   folderSlug: string;
   targetHeadcount: number;
-  leadAgentId: string; // Also acts as the Department's Team Orchestrator
+  leadAgentId: string;
   orchestratorCodename: string;
   defaultDepartmentModel: StudioModelId;
   allowedModelArray: StudioModelId[];
@@ -83,7 +89,11 @@ export interface DepartmentSpec {
 export interface ThreeDAssetBrief {
   assetId: string;
   assetName: string;
-  category: 'Hero Character' | 'Modular Environment' | 'Hard-Surface Weapon/Vehicle' | 'Hero Prop & Foliage';
+  category:
+    | 'Hero Character'
+    | 'Modular Environment'
+    | 'Hard-Surface Weapon/Vehicle'
+    | 'Hero Prop & Foliage';
   assignedScoutAgentId: string;
   assignedTechArtistId: string;
   targetTriangleBudget: number;
@@ -93,6 +103,9 @@ export interface ThreeDAssetBrief {
   searchKeywords: string[];
   pipelineStatus: 'Spec Locked' | 'Topology Verified' | 'Shader Ready';
 }
+
+export type ThreeDAssetSpec = ThreeDAssetBrief;
+export type ThreeDAssetPipelineEntry = ThreeDAssetBrief;
 
 export interface DepartmentSprintOutput {
   departmentId: DepartmentId;
@@ -114,6 +127,25 @@ export interface DepartmentSprintOutput {
   }>;
 }
 
+export type DepartmentOutput = DepartmentSprintOutput;
+
+export interface GeneratedChapterScene {
+  chapterNumber: number;
+  holidayName: string;
+  chapterTitle: string;
+  comicPdfStartPage: number;
+  comicPdfEndPage: number;
+  locationName: string;
+  gameplayMode: 'Freeflow Combat' | 'Noir Detective Forensics' | 'Predator Stealth' | '2.5D Comic Cutscene' | 'Cape Glide & Grapnel Traversal';
+  objectiveSummary: string;
+  cutsceneScript: string;
+  forensicClues: string[];
+  enemiesPresent: string[];
+  vfsChunkId: string;
+  rtxFrameDataUrl?: string;
+  authoredByAgents: string[];
+}
+
 export interface StudioSprintReport {
   projectTitle: string;
   genre: string;
@@ -127,7 +159,13 @@ export interface StudioSprintReport {
 
 export interface RepoFileEntry {
   path: string;
-  category: 'Root Config' | 'Orchestrator Core' | 'Department Manifest' | 'Agent Specification' | '3D Pipeline Spec';
+  category:
+    | 'Root Config'
+    | 'Orchestrator'
+    | 'Orchestrator Core'
+    | 'Department Manifest'
+    | 'Agent Specification'
+    | '3D Pipeline Spec';
   departmentId?: DepartmentId;
   agentId?: string;
   sizeBytes: number;

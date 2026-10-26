@@ -1,18 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ALL_STUDIO_AGENTS,
-  STUDIO_PRESET_BRIEFS,
+  DEFAULT_FOUNDER_DIRECTIVE_CONFIG,
 } from '../studio/studioEngine';
 import { STUDIO_DEPARTMENTS } from '../studio/departments';
 import {
   AgentSpec,
   DepartmentId,
   DepartmentSprintOutput,
-  StudioSprintReport,
+  GeneratedChapterScene,
   ThreeDAssetSpec,
 } from '../studio/types';
 import {
-  ArrowRight,
+  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -43,11 +43,12 @@ export interface LiveExecutionLogEntry {
 export type DepartmentExecutionState = 'unwritten' | 'writing' | 'completed' | 'steered';
 
 interface StudioCommandViewProps {
-  baseBlueprintReport: StudioSprintReport;
   writtenDepartments: DepartmentSprintOutput[];
   onSetWrittenDepartments: React.Dispatch<React.SetStateAction<DepartmentSprintOutput[]>>;
   writtenThreeDAssets: ThreeDAssetSpec[];
   onSetWrittenThreeDAssets: React.Dispatch<React.SetStateAction<ThreeDAssetSpec[]>>;
+  writtenChapters: GeneratedChapterScene[];
+  onSetWrittenChapters: React.Dispatch<React.SetStateAction<GeneratedChapterScene[]>>;
   studioHeadAnalysis: string | null;
   onUpdateStudioHeadAnalysis: (analysis: string | null) => void;
   cloudStorageProvider: string;
@@ -65,25 +66,27 @@ interface StudioCommandViewProps {
 
 const CLOUD_STORAGE_TARGETS = [
   {
-    id: 'Novice Cloud RTX 6000 Ada Pod + NVMe IoStore Cluster (US-East / WebRTC AV1 Edge)',
-    label: 'Novice Cloud RTX 6000 Ada Pod + NVMe IoStore Cluster (Auto-Provisioned · 4K 120Hz WebRTC)',
+    id: 'wasm64 (16GB Heap) + pthreads + WebGPU (DX12/Vulkan WGSL) + 4KB Chunked OPFS VFS + Cloud RTX Pod',
+    label:
+      'wasm64 (16GB Heap) + WebGPU (WGSL) + 4KB Chunked OPFS Virtual File System + Cloud RTX Pod',
   },
   {
-    id: 'AWS EC2 G6e (RTX L40S) + S3 IoStore + CloudFront WebRTC Edge',
-    label: 'AWS EC2 G6e (RTX L40S) + S3 IoStore + CloudFront WebRTC Edge',
+    id: 'Novice Cloud RTX 6000 Ada Pod + HTTP Range-Request Chunked VFS (4K 120Hz Stream)',
+    label: 'Novice Cloud RTX 6000 Ada Pod + HTTP Range-Request Chunked VFS (4K 120Hz Stream)',
   },
   {
-    id: 'GCP Cloud GPU Node + Cloud Storage NVMe Pakchunk Pool',
-    label: 'GCP Cloud GPU Node + Cloud Storage NVMe Pakchunk Pool',
+    id: 'AWS G6e RTX L40S + S3 4KB Byte-Range OPFS VFS + CloudFront Edge',
+    label: 'AWS G6e RTX L40S + S3 4KB Byte-Range OPFS VFS + CloudFront Edge',
   },
 ];
 
 export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
-  baseBlueprintReport,
   writtenDepartments,
   onSetWrittenDepartments,
   writtenThreeDAssets,
   onSetWrittenThreeDAssets,
+  writtenChapters,
+  onSetWrittenChapters,
   studioHeadAnalysis,
   onUpdateStudioHeadAnalysis,
   cloudStorageProvider,
@@ -98,14 +101,12 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
   onNavigateToRosterDept,
   onLaunchGameInline,
 }) => {
-  const defaultBrief = STUDIO_PRESET_BRIEFS[0];
-  const [projectTitle, setProjectTitle] = useState(defaultBrief.title);
-  const [genre, setGenre] = useState(defaultBrief.genre);
-  const [setting, setSetting] = useState(defaultBrief.setting);
-  const [founderPrompt, setFounderPrompt] = useState(defaultBrief.promptText);
+  const [projectTitle, setProjectTitle] = useState(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.title);
+  const [genre, setGenre] = useState(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.genre);
+  const [setting, setSetting] = useState(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.setting);
+  const [founderPrompt, setFounderPrompt] = useState(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText);
   const [promptError, setPromptError] = useState<string | null>(null);
 
-  // Live Scratch Build State (Starts completely unbuilt until Founder clicks Dispatch!)
   const [pipelineStatus, setPipelineStatus] = useState<
     'unbuilt' | 'writing' | 'paused' | 'completed'
   >(isGameBuildReady ? 'completed' : 'unbuilt');
@@ -115,7 +116,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
     isGameBuildReady ? 150 : 0
   );
   const [cloudCachePercent, setCloudCachePercent] = useState<number>(
-    isGameBuildReady ? 92 : 0
+    isGameBuildReady ? 100 : 0
   );
   const [liveLogs, setLiveLogs] = useState<LiveExecutionLogEntry[]>([]);
 
@@ -159,7 +160,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
     }
   };
 
-  // Write the entire game from scratch when the Founder clicks Dispatch
+  // Write the entire game from scratch purely via live Novice Labs model calls
   const handleDispatchFromScratch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectTitle.trim() || !founderPrompt.trim()) {
@@ -173,16 +174,24 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
     abortRunRef.current = false;
     isPausedRef.current = false;
 
-    // Reset everything to 0 — writing from scratch!
+    // Reset everything to 0 — Novice Labs writes everything live from scratch
     setPipelineStatus('writing');
     onSetGameBuildReady(false);
     onUpdateStudioHeadAnalysis(null);
     onSetWrittenDepartments([]);
     onSetWrittenThreeDAssets([]);
+    onSetWrittenChapters([]);
     onSetCompiledFilesCount(0);
     setActiveAgentsCount(0);
     setCloudCachePercent(0);
     setLiveLogs([]);
+
+    try {
+      localStorage.removeItem('novice_labs_live_chapters');
+      localStorage.removeItem('novice_labs_build_ready');
+    } catch {
+      // Ignore storage error
+    }
 
     const freshStates: Record<string, DepartmentExecutionState> = {};
     for (const d of STUDIO_DEPARTMENTS) freshStates[d.id] = 'unwritten';
@@ -193,10 +202,10 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
       actorId: 'NL-001',
       actorName: 'Marcus Vance (Studio Head)',
       modelUsed: 'gemini-4-argon',
-      message: `INITIALIZING SCRATCH BUILD FOR "${projectTitle.trim()}". Zero pre-existing game files. Allocating Cloud GPU Pod [${cloudStorageProvider}] and dispatching Founder Directive to NL-001 on gemini-4-argon...`,
+      message: `DISPATCHING LIVE DIRECTIVE FOR "${projectTitle.trim()}". Mounted 386-page source comic (${DEFAULT_FOUNDER_DIRECTIVE_CONFIG.sourceComicPdfPath}). Calling NL-001 on gemini-4-argon...`,
     });
 
-    // Stage 0: Studio Head (NL-001) writes Master Architecture from scratch
+    // Stage 0: Studio Head (NL-001) writes Master Architecture live on gemini-4-argon
     try {
       const headRes = await fetch('/api/studio/prompt-studio', {
         method: 'POST',
@@ -209,37 +218,33 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         }),
       });
       const headData = await headRes.json();
-      const analysisText =
-        headData.studioHeadAnalysis ||
-        'Studio Head Marcus Vance (NL-001) initialized the clean-slate Unreal Engine 5.5 + Vulkan + Chaos 120Hz Physics + Tim Sale Cel-Shaded Chiaroscuro architecture across all 12 Department Team Orchestrators.';
-      onUpdateStudioHeadAnalysis(analysisText);
+      if (!headRes.ok) {
+        throw new Error(headData.error || 'Studio Head execution failed');
+      }
+      onUpdateStudioHeadAnalysis(headData.studioHeadAnalysis);
       onSetCompiledFilesCount((c) => c + 4);
       appendLog({
         level: 'STUDIO_HEAD',
         actorId: 'NL-001',
         actorName: 'Marcus Vance (Studio Head)',
         modelUsed: headData.modelUsed || 'gemini-4-argon',
-        message: `Wrote Master Engine & Creative Charter from scratch (${headData.mode || 'live-gemini-4-argon'}): ${analysisText}`,
+        message: headData.studioHeadAnalysis,
       });
-    } catch {
-      const fallbackAnalysis =
-        'Studio Head Marcus Vance (NL-001) initialized the clean-slate Unreal Engine 5.5 + Vulkan + Chaos 120Hz Physics + Tim Sale Cel-Shaded Chiaroscuro architecture across all 12 Department Team Orchestrators.';
-      onUpdateStudioHeadAnalysis(fallbackAnalysis);
-      onSetCompiledFilesCount((c) => c + 4);
+    } catch (err: any) {
+      setPromptError(`Studio Head NL-001 error: ${err?.message || 'Check GEMINI_API_KEY'}`);
+      setPipelineStatus('unbuilt');
+      return;
     }
 
-    // Stages 1..12: Each Department Team Orchestrator & its Specialist Agents write their game systems/code/assets from scratch
+    // Stages 1..12: Each Department Team Orchestrator & its Specialist Agents execute live
     let cumulativeAgents = 0;
+    const accumulatedChapters: GeneratedChapterScene[] = [];
 
     for (let i = 0; i < STUDIO_DEPARTMENTS.length; i++) {
       await waitWhilePaused();
       if (abortRunRef.current) return;
 
       const dept = STUDIO_DEPARTMENTS[i];
-      const blueprintDept = baseBlueprintReport.departments.find(
-        (d) => d.departmentId === dept.id
-      )!;
-
       setCurrentDeptIndex(i);
       setExpandedDeptId(dept.id);
       setDeptStates((prev) => ({ ...prev, [dept.id]: 'writing' }));
@@ -250,7 +255,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         actorName: `${dept.orchestratorCodename} (${dept.name})`,
         modelUsed: dept.defaultDepartmentModel,
         departmentId: dept.id,
-        message: `[WRITING FROM SCRATCH · TEAM ${String(i + 1).padStart(2, '0')}/12] ${dept.leadAgentId} assigning ${dept.targetHeadcount} agents on [${dept.allowedModelArray.join(', ')}] to write ${dept.name} files...`,
+        message: `[TEAM ${String(i + 1).padStart(2, '0')}/12 LIVE] ${dept.leadAgentId} orchestrating ${dept.targetHeadcount} agents on [${dept.allowedModelArray.join(', ')}]...`,
       });
 
       try {
@@ -259,6 +264,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             departmentId: dept.id,
+            departmentIndex: i,
             projectTitle: projectTitle.trim(),
             genre: genre.trim(),
             setting: setting.trim(),
@@ -267,20 +273,28 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
           }),
         });
         const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || `Department ${dept.name} failed`);
+        }
 
         await waitWhilePaused();
         if (abortRunRef.current) return;
 
         const newlyWrittenDept: DepartmentSprintOutput = {
-          ...blueprintDept,
-          concreteArtifactTitle:
-            data.concreteArtifactTitle || blueprintDept.concreteArtifactTitle,
-          executiveSummary: data.executiveSummary || blueprintDept.executiveSummary,
-          concreteArtifactContent:
-            data.concreteArtifactContent || blueprintDept.concreteArtifactContent,
+          departmentId: dept.id,
+          departmentName: dept.name,
+          agentCount: data.agentCount || dept.targetHeadcount,
+          leadAgentId: data.leadAgentId || dept.leadAgentId,
+          leadAgentRole: data.leadAgentRole || dept.orchestratorCodename,
+          orchestratorModelSummary: data.orchestratorModelSummary || dept.defaultDepartmentModel,
+          concreteArtifactTitle: data.concreteArtifactTitle,
+          executiveSummary: data.executiveSummary,
+          concreteArtifactContent: data.concreteArtifactContent,
+          agentContributions: Array.isArray(data.agentContributions)
+            ? data.agentContributions
+            : [],
         };
 
-        // Stream individual specialist agent logs as they write their files from scratch
         const agentLogs: Array<{
           agentId: string;
           agentName: string;
@@ -300,30 +314,43 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
             message: al.logLine,
           });
           onSetCompiledFilesCount((c) => c + 3);
-          await sleep(150);
+          await sleep(120);
         }
 
-        // Materialize this department's newly written card into the workspace
         onSetWrittenDepartments((prev) => {
           const filtered = prev.filter((d) => d.departmentId !== dept.id);
           return [...filtered, newlyWrittenDept];
         });
 
-        // If this department produces 3D character/world/cloud pakchunk assets, materialize them now
-        const assetIdx = Math.floor(i / 2);
-        if (baseBlueprintReport.threeDAssetQueue[assetIdx]) {
-          const newAsset = baseBlueprintReport.threeDAssetQueue[assetIdx];
-          onSetWrittenThreeDAssets((prev) =>
-            prev.some((a) => a.assetId === newAsset.assetId)
-              ? prev
-              : [...prev, newAsset]
-          );
+        if (data.generatedThreeDAsset) {
+          const newAsset: ThreeDAssetSpec = data.generatedThreeDAsset;
+          onSetWrittenThreeDAssets((prev) => [
+            ...prev.filter((a) => a.assetId !== newAsset.assetId),
+            newAsset,
+          ]);
+        }
+
+        if (data.generatedChapterScene) {
+          const newChapter: GeneratedChapterScene = data.generatedChapterScene;
+          accumulatedChapters.push(newChapter);
+          onSetWrittenChapters((prev) => {
+            const next = [
+              ...prev.filter((c) => c.chapterNumber !== newChapter.chapterNumber),
+              newChapter,
+            ].sort((a, b) => a.chapterNumber - b.chapterNumber);
+            try {
+              localStorage.setItem('novice_labs_live_chapters', JSON.stringify(next));
+            } catch {
+              // Ignore storage error
+            }
+            return next;
+          });
         }
 
         cumulativeAgents += dept.targetHeadcount;
         setActiveAgentsCount(cumulativeAgents);
         setCloudCachePercent(
-          Math.min(92, Math.round(((i + 1) / STUDIO_DEPARTMENTS.length) * 92))
+          Math.min(100, Math.round(((i + 1) / STUDIO_DEPARTMENTS.length) * 100))
         );
         setDeptStates((prev) => ({
           ...prev,
@@ -336,32 +363,37 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
           actorName: `${dept.orchestratorCodename} (${dept.name})`,
           modelUsed: data.modelUsed || dept.defaultDepartmentModel,
           departmentId: dept.id,
-          message: `Compiled & committed "${newlyWrittenDept.concreteArtifactTitle}" to Cloud Build Store (${cumulativeAgents}/150 agents finished).`,
+          message: `Committed "${newlyWrittenDept.concreteArtifactTitle}" & VFS Chunk [${
+            data.generatedChapterScene?.vfsChunkId || `pakchunk${i}.ucas`
+          }] (${cumulativeAgents}/150 agents finished).`,
         });
-      } catch {
-        onSetWrittenDepartments((prev) => {
-          const filtered = prev.filter((d) => d.departmentId !== dept.id);
-          return [...filtered, blueprintDept];
+      } catch (err: any) {
+        appendLog({
+          level: 'ORCHESTRATOR',
+          actorId: dept.leadAgentId,
+          actorName: dept.name,
+          modelUsed: dept.defaultDepartmentModel,
+          departmentId: dept.id,
+          message: `Error in ${dept.name}: ${err?.message || 'Retrying'}`,
         });
-        cumulativeAgents += dept.targetHeadcount;
-        setActiveAgentsCount(cumulativeAgents);
-        onSetCompiledFilesCount((c) => c + 12);
-        setDeptStates((prev) => ({ ...prev, [dept.id]: 'completed' }));
       }
     }
 
-    // Final Stage: Package & Deploy to Cloud GPU Pod for Instant Browser Streaming
-    onSetWrittenThreeDAssets(baseBlueprintReport.threeDAssetQueue);
-    setCloudCachePercent(92);
+    setCloudCachePercent(100);
     setPipelineStatus('completed');
     onSetGameBuildReady(true);
+    try {
+      localStorage.setItem('novice_labs_build_ready', 'true');
+    } catch {
+      // Ignore storage error
+    }
 
     appendLog({
       level: 'CLOUD_DEPLOY',
-      actorId: 'NL-103 & NL-147',
-      actorName: 'Cloud GPU & IoStore Pakchunk Deployer',
+      actorId: 'NL-103 & NL-115',
+      actorName: 'wasm64 + WebGPU + 4KB Chunked OPFS VFS Deployer',
       modelUsed: 'gemini-4-argon',
-      message: `SCRATCH BUILD & CLOUD DEPLOYMENT COMPLETE! Stored signed UE5.5 + Vulkan + Chaos 120Hz Physics + Tim Sale Cel-Shaded Noir containers in [${cloudStorageProvider}]. Click "Open & Stream PS5/RTX Game in New Browser Tab" to play immediately!`,
+      message: `BUILD COMPLETE! All 12 Departments & 150 Agents finished writing "${projectTitle.trim()}" (${accumulatedChapters.length} Playable Chapters + 2.5D Comic-Panel Cutscenes linked to the 386-page PDF). Click "Open & Play Game in New Browser Tab" below!`,
     });
   };
 
@@ -384,12 +416,11 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         actorId: 'FOUNDER',
         actorName: 'Founder Orchestration Override',
         modelUsed: 'manual-control',
-        message: `Resuming scratch build from Team ${String(currentDeptIndex + 1).padStart(2, '0')}...`,
+        message: `Resuming live build from Team ${String(currentDeptIndex + 1).padStart(2, '0')}...`,
       });
     }
   };
 
-  // Live Founder Interjection & Steering in an Opposite Direction
   const handleSteerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!steeringInput.trim()) return;
@@ -403,9 +434,6 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
       STUDIO_DEPARTMENTS.find((d) => d.id === steerDeptId) || STUDIO_DEPARTMENTS[0];
     const targetAgent =
       ALL_STUDIO_AGENTS.find((a) => a.id === steerAgentId) || ALL_STUDIO_AGENTS[0];
-    const blueprintDept = baseBlueprintReport.departments.find(
-      (d) => d.departmentId === steerDeptId
-    )!;
 
     appendLog({
       level: 'FOUNDER_STEER',
@@ -460,36 +488,53 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         }
       }
 
-      const steeredDeptOutput: DepartmentSprintOutput = {
-        ...blueprintDept,
-        concreteArtifactTitle:
-          data.updatedArtifactTitle || `[STEERED] ${blueprintDept.concreteArtifactTitle}`,
-        executiveSummary: data.steeringSummary || blueprintDept.executiveSummary,
-        concreteArtifactContent:
-          data.updatedArtifactContent ||
-          `// FOUNDER STEERING OVERRIDE: ${note}\n${blueprintDept.concreteArtifactContent}`,
-      };
-
       onSetWrittenDepartments((prev) => {
-        const exists = prev.some((d) => d.departmentId === steerDeptId);
-        if (!exists) return [...prev, steeredDeptOutput];
-        return prev.map((d) =>
-          d.departmentId === steerDeptId ? steeredDeptOutput : d
-        );
+        const existing = prev.find((d) => d.departmentId === steerDeptId);
+        const deptAgents = ALL_STUDIO_AGENTS.filter((a) => a.departmentId === steerDeptId);
+        const steeredDeptOutput: DepartmentSprintOutput = existing
+          ? {
+              ...existing,
+              concreteArtifactTitle: data.updatedArtifactTitle || existing.concreteArtifactTitle,
+              executiveSummary: data.steeringSummary || existing.executiveSummary,
+              concreteArtifactContent:
+                data.updatedArtifactContent || existing.concreteArtifactContent,
+            }
+          : {
+              departmentId: steerDeptId,
+              departmentName: targetDept.name,
+              agentCount: deptAgents.length,
+              leadAgentId: targetDept.leadAgentId,
+              leadAgentRole: targetDept.orchestratorCodename,
+              orchestratorModelSummary: targetDept.defaultDepartmentModel,
+              concreteArtifactTitle: data.updatedArtifactTitle || `${targetDept.name} Spec`,
+              executiveSummary: data.steeringSummary || '',
+              concreteArtifactContent: data.updatedArtifactContent || '',
+              agentContributions: deptAgents.map((a) => ({
+                agentId: a.id,
+                role: a.role,
+                name: a.name,
+                assignedModel: a.assignedModel,
+                assignedAction: a.coreDirective,
+                outputArtifact: a.deliverablesProduced[0],
+              })),
+            };
+
+        if (!existing) return [...prev, steeredDeptOutput];
+        return prev.map((d) => (d.departmentId === steerDeptId ? steeredDeptOutput : d));
       });
 
       setDeptStates((prev) => ({ ...prev, [steerDeptId]: 'steered' }));
       setExpandedDeptId(steerDeptId);
       onSetCompiledFilesCount((c) => c + 5);
       setSteeringInput('');
-    } catch {
+    } catch (err: any) {
       appendLog({
         level: 'FOUNDER_STEER',
         actorId: targetDept.leadAgentId,
         actorName: targetDept.name,
         modelUsed: 'gemini-4-argon',
         departmentId: steerDeptId,
-        message: `Re-wrote ${targetDept.name} specification to enforce Founder Override: "${note}"`,
+        message: `Steering error: ${err?.message || 'Unknown error'}`,
       });
     } finally {
       setIsSteering(false);
@@ -505,7 +550,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
 
   return (
     <div className="space-y-8">
-      {/* Top Studio Command & Scratch-Build Dispatch Console (NO Preset Switcher!) */}
+      {/* Top Studio Command & Scratch-Build Dispatch Console (ONLY Preloaded Form Fields) */}
       <section
         aria-labelledby="studio-command-heading"
         className="border border-slate-800 bg-[#0F1623] rounded-xl p-6"
@@ -513,29 +558,35 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         <div className="pb-5 border-b border-slate-800/80 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-xs text-amber-400 font-mono font-semibold">
-              <span>AUTONOMOUS AAA GAME STUDIO COMMAND</span>
+              <span>NOVICE LABS · 150-AGENT AUTONOMOUS AAA GAME STUDIO</span>
               <span aria-hidden="true">·</span>
               <span>NL-001 STUDIO HEAD</span>
               <span aria-hidden="true">·</span>
               <span>12 TEAM ORCHESTRATORS</span>
-              <span aria-hidden="true">·</span>
-              <span>150 SPECIALIST AGENTS</span>
             </div>
-            <span className="text-xs font-mono px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300">
-              Clean-Slate Scratch Build Mode · Zero Pre-Built Demo State
-            </span>
+            <a
+              href={DEFAULT_FOUNDER_DIRECTIVE_CONFIG.sourceComicPdfPath}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-mono px-2.5 py-1 rounded bg-emerald-950/60 border border-emerald-700/60 text-emerald-300 hover:bg-emerald-900/60 transition-colors"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>
+                Mounted Source Comic PDF ({DEFAULT_FOUNDER_DIRECTIVE_CONFIG.sourceComicPages} Pages)
+              </span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
 
           <h1
             id="studio-command-heading"
             className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 font-display"
           >
-            Dispatch Directive to Write & Cloud-Deploy the Game From Scratch
+            Dispatch Directive to Novice Labs (NL-001 → 12 Teams → 150 Agents)
           </h1>
           <p className="text-sm text-slate-300 leading-relaxed max-w-4xl">
-            Your project parameters and Founder Directive are pre-entered below for convenience, but{' '}
-            <strong>no game build exists until you click Dispatch</strong>. When you hit{' '}
-            <strong>Dispatch Directive to Studio Head (NL-001)</strong>, all 150 agents begin writing the Unreal Engine 5.5 + Vulkan + Chaos 120Hz Physics + Tim Sale Cel-Shaded Noir codebase from scratch, storing the compiled pakchunks on the cloud GPU cluster so you can stream PS5/RTX-grade gameplay in a new browser tab.
+            Only your project parameters, mounted 386-page comic book reference, and Founder Directive are preloaded below.{' '}
+            <strong>Zero pre-built game files exist until you click Dispatch.</strong> When you dispatch, the 150 agents write the entire game from scratch—pulling authentic panels from the mounted comic PDF for 2.5D motion-graphics cutscenes and compiling the <code className="font-mono text-amber-300">wasm64 + WebGPU + 4KB Chunked OPFS VFS</code> build for instant browser play.
           </p>
         </div>
 
@@ -562,7 +613,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                 htmlFor="studio-project-genre"
                 className="block text-xs font-medium text-slate-300 mb-1.5"
               >
-                Gameplay Target (Arkham-Knight-Surpassing Physics & Fidelity)
+                Gameplay Target (PS5 / Xbox Series X / PC RTX Fidelity)
               </label>
               <input
                 id="studio-project-genre"
@@ -577,7 +628,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                 htmlFor="studio-cloud-storage"
                 className="block text-xs font-medium text-slate-300 mb-1.5"
               >
-                Cloud GPU & NVMe Storage Target (For Browser Streaming)
+                Browser Execution & Cloud VFS Architecture
               </label>
               <select
                 id="studio-cloud-storage"
@@ -603,7 +654,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
             </label>
             <textarea
               id="studio-founder-prompt"
-              rows={4}
+              rows={5}
               value={founderPrompt}
               onChange={(e) => setFounderPrompt(e.target.value)}
               className="w-full px-3.5 py-2.5 text-sm bg-slate-950 border border-slate-800 rounded-lg text-slate-100 leading-relaxed focus:outline-none focus:border-amber-400"
@@ -673,7 +724,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>
-                      Writing From Scratch: Team {String(currentDeptIndex + 1).padStart(2, '0')}/12 ({activeAgentsCount}/150 Agents)...
+                      Novice Labs Writing: Team {String(currentDeptIndex + 1).padStart(2, '0')}/12 ({activeAgentsCount}/150 Agents)...
                     </span>
                   </>
                 ) : (
@@ -682,7 +733,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                     <span>
                       {pipelineStatus === 'completed'
                         ? 'Clean & Re-Write Entire Game From Scratch (150 Agents)'
-                        : 'Dispatch Directive to Studio Head (Write Game From Scratch)'}
+                        : 'Dispatch Directive to Studio Head (Kick Off Novice Labs)'}
                     </span>
                   </>
                 )}
@@ -692,7 +743,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
         </form>
       </section>
 
-      {/* IF UNBUILT: Show Clean "No Game Exists Yet" Empty State Until Founder Clicks Dispatch */}
+      {/* IF UNBUILT: Clean Empty State Until Founder Clicks Dispatch */}
       {pipelineStatus === 'unbuilt' && writtenDepartments.length === 0 && (
         <section className="border-2 border-dashed border-slate-800 bg-[#0B0F17]/60 rounded-xl p-12 text-center space-y-4">
           <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-amber-400">
@@ -700,23 +751,22 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
           </div>
           <div className="space-y-1.5 max-w-xl mx-auto">
             <div className="text-xs font-mono text-amber-400 uppercase tracking-wider">
-              0 FILES WRITTEN · NO PRE-BUILT DEMO ARTIFACTS
+              0 FILES WRITTEN · AWAITING NOVICE LABS EXECUTION
             </div>
             <h2 className="text-xl font-bold text-slate-100 font-display">
-              Game Does Not Exist Yet — Ready to Write From Scratch
+              Ready for Novice Labs (150 Agents) to Kick Off Development
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-              Click <strong>Dispatch Directive to Studio Head (Write Game From Scratch)</strong> above. Studio Head{' '}
-              <code className="font-mono text-slate-200">NL-001</code> and all 12 Department Team Orchestrators will initialize from zero, stream live agent logs, let you interject and steer any department in real time, and deploy the compiled PS5/RTX build to the cloud for instant browser streaming.
+              Click <strong>Dispatch Directive to Studio Head (Kick Off Novice Labs)</strong> above. Studio Head{' '}
+              <code className="font-mono text-slate-200">NL-001</code> and all 12 Department Team Orchestrators will build the game live from zero, pulling comic panels directly from your uploaded 386-page PDF and compiling the playable chapters.
             </p>
           </div>
         </section>
       )}
 
-      {/* ONCE DISPATCH IS CLICKED: Show Live Execution Logs, Founder Interjection Console, and Newly Written Files */}
+      {/* ONCE DISPATCH IS CLICKED: Live Execution Logs, Founder Interjection Console, and Newly Written Files */}
       {(pipelineStatus !== 'unbuilt' || writtenDepartments.length > 0) && (
         <>
-          {/* LIVE ORCHESTRATION & FOUNDER STEERING CONSOLE */}
           <section
             aria-labelledby="live-orchestration-heading"
             className="border border-amber-500/40 bg-[#0F1623] rounded-xl p-6 space-y-5"
@@ -724,7 +774,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <div className="text-xs font-mono text-amber-400">
-                  LIVE SCRATCH COMPILER STREAM & FOUNDER INTERJECTION CONSOLE
+                  LIVE NOVICE LABS COMPILER STREAM & FOUNDER INTERJECTION CONSOLE
                 </div>
                 <h2
                   id="live-orchestration-heading"
@@ -815,7 +865,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                   </div>
 
                   <p className="text-xs text-slate-300 leading-relaxed">
-                    See something in the logs you want done differently? Interject below to steer the entire studio, a specific department, or a single agent in an opposite direction—the orchestrator immediately halts and re-writes those files.
+                    Interject at any point to steer the entire studio, a specific department, or a single agent in an opposite direction—the orchestrator immediately halts and re-writes those files live on Gemini 4 Argon.
                   </p>
 
                   <div className="grid grid-cols-3 gap-2">
@@ -919,7 +969,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                       rows={3}
                       value={steeringInput}
                       onChange={(e) => setSteeringInput(e.target.value)}
-                      placeholder="e.g. Increase Freeflow v5 hit-stop impact and Chaos cloth rain weight on Batman's cape so it feels heavier than Arkham Knight..."
+                      placeholder="Enter your steering override for Novice Labs..."
                       className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-lg text-slate-100 focus:outline-none focus:border-amber-400"
                     />
                   </div>
@@ -957,8 +1007,8 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
             </div>
           </section>
 
-          {/* CLOUD DEPLOYMENT & INSTANT NEW-TAB STREAM LAUNCH (Unlocks when build completes!) */}
-          {isGameBuildReady && (
+          {/* LAUNCH BANNER (Unlocks as chapters are compiled by Novice Labs!) */}
+          {(isGameBuildReady || writtenChapters.length > 0) && (
             <section
               aria-labelledby="cloud-launch-heading"
               className="border-2 border-emerald-500/70 bg-gradient-to-r from-emerald-950/60 via-[#0F1623] to-[#0F1623] rounded-xl p-6 space-y-4"
@@ -968,17 +1018,19 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                   <div className="inline-flex items-center gap-2 text-xs font-mono text-emerald-400 font-semibold">
                     <Cloud className="w-4 h-4" />
                     <span>
-                      BUILD COMPLETE & STORED ON CLOUD ({compiledFilesCount} FILES · {cloudCachePercent}% NVMe PAKCHUNK PRE-WARMED)
+                      {isGameBuildReady
+                        ? `FULL BUILD COMPILED (${compiledFilesCount} FILES · ${writtenChapters.length} CHAPTERS · ${cloudCachePercent}% OPFS VFS READY)`
+                        : `STREAMING BUILD IN PROGRESS (${writtenChapters.length} CHAPTERS COMPILED SO FAR)`}
                     </span>
                   </div>
                   <h2
                     id="cloud-launch-heading"
                     className="text-2xl font-bold text-slate-100 font-display"
                   >
-                    PS5 / RTX-4090 Unreal Engine 5.5 Build Ready on Cloud — Open in New Tab
+                    Play the Novice Labs Build in Browser (`wasm64` + `WebGPU` + 2.5D Comic Cutscenes)
                   </h2>
                   <p className="text-sm text-slate-300 leading-relaxed">
-                    Stored & running on <strong className="text-emerald-300 font-mono">{cloudStorageProvider}</strong>. Click below to open a new browser tab and immediately stream the 4K 120Hz UE5.5 + Chaos Physics + Tim Sale Cel-Shaded Noir build with zero local installation steps.
+                    Compiled onto <strong className="text-emerald-300 font-mono">{cloudStorageProvider}</strong> with authentic 2.5D comic-panel cutscenes pulled directly from your 386-page PDF. Open a new browser tab to play immediately.
                   </p>
                 </div>
 
@@ -990,7 +1042,7 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                     className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 text-sm font-bold shadow-lg transition-all cursor-pointer"
                   >
                     <Gamepad2 className="w-4 h-4" />
-                    <span>Open & Stream Game in New Browser Tab</span>
+                    <span>Open & Play Game in New Browser Tab</span>
                     <ExternalLink className="w-4 h-4" />
                   </a>
 
@@ -1000,307 +1052,246 @@ export const StudioCommandView: React.FC<StudioCommandViewProps> = ({
                     className="inline-flex items-center gap-2 px-4 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-100 text-xs font-semibold transition-colors cursor-pointer"
                   >
                     <Play className="w-3.5 h-3.5 text-amber-400 fill-current" />
-                    <span>Stream Here in Studio</span>
+                    <span>Open Player Here</span>
                   </button>
                 </div>
               </div>
             </section>
           )}
 
-          {/* Level 1: Studio Head (NL-001) Architectural Approach (Only appears once written!) */}
+          {/* Studio Head (NL-001) Live Executive Charter */}
           {studioHeadAnalysis && (
-            <section
-              aria-labelledby="level-1-studio-head"
-              className="border border-slate-800 bg-[#0F1623] rounded-xl p-6 space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800/80 pb-3">
-                <div>
-                  <div className="text-xs font-mono text-amber-400">
-                    LEVEL 1 HIERARCHY · WRITTEN BY STUDIO HEAD MARCUS VANCE (NL-001 · gemini-4-argon)
-                  </div>
-                  <h2
-                    id="level-1-studio-head"
-                    className="text-lg font-bold text-slate-100 mt-0.5 font-display"
-                  >
-                    Master Engine, Chaos 120Hz Physics & Cel-Shaded Noir Architecture
-                  </h2>
-                </div>
+            <div className="p-4 rounded-xl bg-slate-950/90 border border-amber-500/30 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs font-mono font-semibold text-amber-400">
+                  NL-001 STUDIO HEAD (MARCUS VANCE) · LIVE ARCHITECTURAL CHARTER (gemini-4-argon)
+                </span>
                 <span className="text-xs font-mono text-emerald-400">
-                  Committed to Cloud Build
+                  100% Live Model Output → 12 Team Orchestrators
                 </span>
               </div>
-              <p className="text-sm text-slate-300 leading-relaxed">{studioHeadAnalysis}</p>
+              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                {studioHeadAnalysis}
+              </p>
+            </div>
+          )}
+
+          {/* Live-Authored 3D Character Rigs & Pakchunks */}
+          {writtenThreeDAssets.length > 0 && (
+            <section
+              aria-labelledby="threed-scout-heading"
+              className="border border-slate-800 bg-[#0F1623] rounded-xl p-6 space-y-5"
+            >
+              <div>
+                <div className="text-xs font-mono text-emerald-400">
+                  LIVE NOVICE LABS 3D ASSET & RIG MANIFEST ({writtenThreeDAssets.length} ASSETS AUTHORED)
+                </div>
+                <h2
+                  id="threed-scout-heading"
+                  className="text-xl font-bold text-slate-100 mt-1 font-display"
+                >
+                  Live-Authored 3D Character Rigs, Environment Kits & OPFS VFS Containers
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {writtenThreeDAssets.map((asset) => (
+                  <div
+                    key={asset.assetId}
+                    className="p-4 rounded-xl bg-slate-950/80 border border-slate-800/90 flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-mono font-bold text-amber-400">
+                          {asset.assetId} · {asset.category}
+                        </span>
+                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-700/60 text-emerald-300">
+                          {asset.pipelineStatus}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-100">{asset.assetName}</h3>
+                      <p className="text-xs text-slate-400 font-mono">{asset.formatSpec}</p>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-800/80 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between text-slate-300 font-mono tabular-nums">
+                        <span>Polygon Budget:</span>
+                        <strong>{Number(asset.targetTriangleBudget || 85000).toLocaleString()} Tris</strong>
+                      </div>
+                      <div className="text-slate-400 font-mono text-[11px] truncate">
+                        Maps: {Array.isArray(asset.textureMaps) ? asset.textureMaps.join(', ') : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
           )}
 
-          {/* Level 2 & Level 3: Materialized Department Code & Specs Written From Scratch */}
+          {/* Department Execution Cards (Materialize one by one as Novice Labs writes them) */}
           {writtenDepartments.length > 0 && (
-            <section aria-labelledby="level-2-teams-heading" className="space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs font-mono text-amber-400">
-                    LEVEL 2 & LEVEL 3 · CODE, SHADERS & ASSETS WRITTEN FROM SCRATCH ({writtenDepartments.length} / 12 DEPARTMENTS)
-                  </div>
-                  <h2
-                    id="level-2-teams-heading"
-                    className="text-xl font-bold text-slate-100 mt-1 font-display"
-                  >
-                    Compiled Department Deliverables & Employee Contributions
-                  </h2>
+            <section
+              aria-labelledby="department-decomposition-heading"
+              className="space-y-4"
+            >
+              <div>
+                <div className="text-xs font-mono text-amber-400">
+                  LIVE DEPARTMENT FILES WRITTEN BY NOVICE LABS ({writtenDepartments.length} / 12 TEAMS)
                 </div>
+                <h2
+                  id="department-decomposition-heading"
+                  className="text-xl font-bold text-slate-100 mt-1 font-display"
+                >
+                  Department Code, Shaders & Level Specifications Written Live
+                </h2>
               </div>
 
               <div className="space-y-3">
                 {writtenDepartments.map((deptOut) => {
-                  const deptSpec = STUDIO_DEPARTMENTS.find(
-                    (d) => d.id === deptOut.departmentId
-                  )!;
                   const isExpanded = expandedDeptId === deptOut.departmentId;
                   const showAllEmployees = Boolean(
                     showAllEmployeesForDept[deptOut.departmentId]
                   );
-                  const displayedContributions = showAllEmployees
+                  const visibleEmployees = showAllEmployees
                     ? deptOut.agentContributions
-                    : deptOut.agentContributions.slice(0, 6);
-                  const state = deptStates[deptOut.departmentId] || 'completed';
+                    : deptOut.agentContributions.slice(0, 4);
+                  const execState = deptStates[deptOut.departmentId] || 'completed';
 
                   return (
-                    <div
+                    <article
                       key={deptOut.departmentId}
-                      className={`border rounded-xl overflow-hidden transition-colors ${
-                        state === 'steered'
-                          ? 'border-rose-500/60 bg-[#0F1623]'
-                          : 'border-emerald-500/40 bg-[#0F1623]'
+                      className={`border rounded-xl bg-[#0F1623] overflow-hidden transition-colors ${
+                        execState === 'steered'
+                          ? 'border-rose-500/60'
+                          : 'border-slate-800'
                       }`}
                     >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedDeptId(isExpanded ? 'none' : deptOut.departmentId)
-                        }
-                        aria-expanded={isExpanded}
-                        className="w-full flex flex-col md:flex-row md:items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-900/60 transition-colors cursor-pointer"
-                      >
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400">
-                            <span className="text-amber-400 font-semibold">
-                              TEAM {String(deptSpec.index).padStart(2, '0')}
+                      <div className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div className="space-y-1.5 max-w-3xl">
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                              <CheckCircle2 className="w-3 h-3" />
+                              WRITTEN LIVE ({deptOut.orchestratorModelSummary})
                             </span>
-                            <span aria-hidden="true">·</span>
-                            <span>ORCHESTRATOR: {deptOut.leadAgentId}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="tabular-nums">{deptOut.agentCount} AGENTS</span>
-                            <span aria-hidden="true">·</span>
-                            <span>MODELS: {deptOut.orchestratorModelSummary}</span>
+                            <span className="text-amber-400 font-semibold">
+                              {deptOut.departmentName}
+                            </span>
+                            <span className="text-slate-500">·</span>
+                            <span className="text-slate-300">
+                              Orchestrator: {deptOut.leadAgentId} ({deptOut.leadAgentRole})
+                            </span>
                           </div>
-                          <div className="text-base font-bold text-slate-100 font-display">
-                            {deptOut.departmentName} — {deptOut.concreteArtifactTitle}
-                          </div>
+                          <h3 className="text-base font-bold text-slate-100 font-display">
+                            {deptOut.concreteArtifactTitle}
+                          </h3>
+                          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                            {deptOut.executiveSummary}
+                          </p>
                         </div>
 
-                        <div className="flex items-center gap-3 shrink-0">
-                          {state === 'steered' ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-rose-300 font-semibold">
-                              <Compass className="w-3.5 h-3.5" />
-                              Re-Written via Founder Steer ✓
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 text-xs font-mono text-emerald-400 font-semibold">
-                              <FileCode2 className="w-3.5 h-3.5" />
-                              Written & Stored ({deptOut.agentCount} Agents)
-                            </span>
-                          )}
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-slate-400" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-slate-400" />
-                          )}
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => onNavigateToRosterDept(deptOut.departmentId)}
+                            className="px-3 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg transition-colors cursor-pointer"
+                          >
+                            Team Roster ({deptOut.agentCount})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedDeptId(isExpanded ? 'none' : deptOut.departmentId)
+                            }
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <FileCode2 className="w-3.5 h-3.5" />
+                            <span>{isExpanded ? 'Hide Spec' : 'Inspect Written Spec'}</span>
+                            {isExpanded ? (
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            ) : (
+                              <ChevronRight className="w-3.5 h-3.5" />
+                            )}
+                          </button>
                         </div>
-                      </button>
+                      </div>
 
                       {isExpanded && (
-                        <div className="px-5 pb-5 pt-2 border-t border-slate-800/80 space-y-5">
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-                            <div className="lg:col-span-5 space-y-3">
-                              <div className="text-xs font-mono text-slate-400">
-                                WRITTEN BY {deptSpec.orchestratorCodename} ({deptOut.leadAgentRole})
-                              </div>
-                              <p className="text-xs text-slate-300 leading-relaxed">
-                                {deptOut.executiveSummary}
-                              </p>
-                              <pre className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed overflow-x-auto">
-                                {deptOut.concreteArtifactContent}
-                              </pre>
-                              <div className="flex flex-wrap items-center gap-4 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSteerScope('department');
-                                    setSteerDeptId(deptOut.departmentId);
-                                    document
-                                      .getElementById('founder-steer-textarea')
-                                      ?.focus();
-                                  }}
-                                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-400 hover:text-rose-300 cursor-pointer"
-                                >
-                                  <Compass className="w-3.5 h-3.5" />
-                                  <span>Steer {deptSpec.shortName} in Opposite Direction</span>
-                                </button>
+                        <div className="border-t border-slate-800 bg-slate-950/90 p-5 space-y-5">
+                          <div>
+                            <div className="text-xs font-mono text-amber-400 mb-2">
+                              LIVE ARTIFACT WRITTEN BY {deptOut.leadAgentId}: {deptOut.concreteArtifactTitle}
+                            </div>
+                            <pre className="p-4 rounded-lg bg-[#090D14] border border-slate-800 text-xs font-mono text-slate-200 overflow-x-auto leading-relaxed whitespace-pre-wrap">
+                              {deptOut.concreteArtifactContent}
+                            </pre>
+                          </div>
 
+                          <div className="space-y-2.5">
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs font-mono text-slate-400">
+                                EMPLOYEE DELIVERABLES ({deptOut.agentContributions.length} AGENTS)
+                              </div>
+                              {deptOut.agentContributions.length > 4 && (
                                 <button
                                   type="button"
-                                  onClick={() => onNavigateToRosterDept(deptOut.departmentId)}
-                                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 cursor-pointer"
+                                  onClick={() => toggleEmployeeList(deptOut.departmentId)}
+                                  className="text-xs font-mono text-amber-400 hover:text-amber-300 cursor-pointer"
                                 >
-                                  <span>Inspect {deptSpec.shortName} Agents</span>
-                                  <ArrowRight className="w-3.5 h-3.5" />
+                                  {showAllEmployees
+                                    ? 'Show Top 4 Agents'
+                                    : `Show All ${deptOut.agentContributions.length} Agents`}
                                 </button>
-                              </div>
+                              )}
                             </div>
 
-                            <div className="lg:col-span-7 space-y-3">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-slate-400">
-                                  AGENT FILES WRITTEN ({deptOut.agentContributions.length} EMPLOYEES)
-                                </span>
-                                {deptOut.agentContributions.length > 6 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleEmployeeList(deptOut.departmentId)}
-                                    className="text-xs font-medium text-amber-400 hover:text-amber-300 cursor-pointer"
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              {visibleEmployees.map((contrib) => {
+                                const fullAgent = ALL_STUDIO_AGENTS.find(
+                                  (a) => a.id === contrib.agentId
+                                );
+                                return (
+                                  <div
+                                    key={contrib.agentId}
+                                    className="p-3 rounded-lg bg-slate-900/75 border border-slate-800/90 flex items-start justify-between gap-3"
                                   >
-                                    {showAllEmployees
-                                      ? 'Show Compact (6)'
-                                      : `Show All ${deptOut.agentContributions.length} Department Employees`}
-                                  </button>
-                                )}
-                              </div>
-
-                              <div className="overflow-x-auto border border-slate-800 rounded-lg bg-slate-950">
-                                <table className="w-full text-left border-collapse">
-                                  <thead>
-                                    <tr className="border-b border-slate-800 text-[11px] font-mono text-slate-400">
-                                      <th className="py-2.5 px-3">ID & Employee</th>
-                                      <th className="py-2.5 px-3">Model Used</th>
-                                      <th className="py-2.5 px-3">Written Artifact</th>
-                                      <th className="py-2.5 px-3 text-right">Action</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-800/60 text-xs">
-                                    {displayedContributions.map((emp) => {
-                                      const fullAgent = ALL_STUDIO_AGENTS.find(
-                                        (a) => a.id === emp.agentId
-                                      )!;
-                                      return (
-                                        <tr
-                                          key={emp.agentId}
-                                          className="hover:bg-slate-900/70 transition-colors"
-                                        >
-                                          <td className="py-2.5 px-3">
-                                            <div className="font-mono font-semibold text-amber-300">
-                                              {emp.agentId} · {emp.name}
-                                            </div>
-                                            <div className="text-slate-400 text-[11px]">
-                                              {emp.role}
-                                            </div>
-                                          </td>
-                                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-200 whitespace-nowrap">
-                                            {emp.assignedModel}
-                                          </td>
-                                          <td className="py-2.5 px-3 text-slate-300">
-                                            <div>{emp.outputArtifact}</div>
-                                          </td>
-                                          <td className="py-2.5 px-3 text-right whitespace-nowrap">
-                                            <button
-                                              type="button"
-                                              onClick={() => onSelectAgent(fullAgent)}
-                                              className="px-2.5 py-1 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 rounded transition-colors cursor-pointer"
-                                            >
-                                              Direct Prompt
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
+                                    <div className="space-y-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-mono font-bold text-amber-400">
+                                          {contrib.agentId}
+                                        </span>
+                                        <span className="text-xs font-semibold text-slate-100 truncate">
+                                          {contrib.name}
+                                        </span>
+                                        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-300">
+                                          {contrib.assignedModel}
+                                        </span>
+                                      </div>
+                                      <div className="text-xs text-slate-400 truncate">
+                                        {contrib.role} →{' '}
+                                        <strong className="text-slate-200">
+                                          {contrib.outputArtifact}
+                                        </strong>
+                                      </div>
+                                    </div>
+                                    {fullAgent && (
+                                      <button
+                                        type="button"
+                                        onClick={() => onSelectAgent(fullAgent)}
+                                        className="text-xs font-mono text-amber-400 hover:text-amber-300 shrink-0 cursor-pointer"
+                                      >
+                                        Task Agent →
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
                       )}
-                    </div>
+                    </article>
                   );
                 })}
-              </div>
-            </section>
-          )}
-
-          {/* 3D Character & Cloud IoStore Pakchunk Table (Materializes as assets are scouted/sculpted!) */}
-          {writtenThreeDAssets.length > 0 && (
-            <section
-              aria-labelledby="threed-scout-heading"
-              className="border border-slate-800 bg-[#0F1623] rounded-xl p-6 space-y-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs font-mono text-amber-400">
-                    3D ASSET SCOUTING, TIM SALE SCULPTS & CLOUD PAKCHUNK STORE · NL-059 & NL-110
-                  </div>
-                  <h2
-                    id="threed-scout-heading"
-                    className="text-lg font-bold text-slate-100 mt-1 font-display"
-                  >
-                    Compiled 3D Character Rigs & Pre-Warmed Cloud IoStore Containers ({writtenThreeDAssets.length}/6)
-                  </h2>
-                </div>
-                <span className="text-xs font-mono text-emerald-400 tabular-nums">
-                  Cloud NVMe Pre-Warm: {cloudCachePercent}%
-                </span>
-              </div>
-
-              <div className="overflow-x-auto border border-slate-800 rounded-lg bg-slate-950">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-xs font-mono text-slate-400">
-                      <th className="py-3 px-4">Asset ID & Name</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Owners</th>
-                      <th className="py-3 px-4 text-right">Poly Budget</th>
-                      <th className="py-3 px-4">Cloud Runtime Format</th>
-                      <th className="py-3 px-4">Cloud Storage State</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/70 text-xs">
-                    {writtenThreeDAssets.map((asset) => (
-                      <tr key={asset.assetId} className="hover:bg-slate-900/60">
-                        <td className="py-3 px-4">
-                          <div className="font-mono font-semibold text-slate-100">
-                            {asset.assetId}
-                          </div>
-                          <div className="text-slate-300 font-medium">{asset.assetName}</div>
-                        </td>
-                        <td className="py-3 px-4 text-slate-300 whitespace-nowrap">
-                          {asset.category}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-amber-300 whitespace-nowrap">
-                          {asset.assignedScoutAgentId} → {asset.assignedTechArtistId}
-                        </td>
-                        <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-200 whitespace-nowrap">
-                          {asset.targetTriangleBudget.toLocaleString()} tris (LOD0–
-                          {asset.lodLevels - 1})
-                        </td>
-                        <td className="py-3 px-4 text-slate-300">{asset.formatSpec}</td>
-                        <td className="py-3 px-4 font-mono whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Stored in Cloud NVMe
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
             </section>
           )}

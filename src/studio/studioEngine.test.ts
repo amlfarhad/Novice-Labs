@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import {
   ALL_STUDIO_AGENTS,
   buildNoviceLabsRepoFiles,
+  DEFAULT_FOUNDER_DIRECTIVE_CONFIG,
   filterAgents,
-  generateStudioSprintReport,
   getStudioSummaryMetrics,
 } from './studioEngine';
 import { STUDIO_DEPARTMENTS, STUDIO_MODEL_ARRAY } from './departments';
@@ -49,18 +49,14 @@ test('Team Orchestrator Multi-Model Array enforces Zero Cost-Cutting Policy and 
   assert.equal(summary.totalAgents, 150);
   assert.equal(summary.teamOrchestrators, 12);
 
-  // Verify majority of studio uses flagship gemini-4-argon
   assert.ok(
     summary.modelDistribution['gemini-4-argon'] >= 120,
     `Expected >= 120 agents on gemini-4-argon, got ${summary.modelDistribution['gemini-4-argon']}`
   );
 
-  // Verify Google Lyria models are assigned to Audio/Music agents
   assert.equal(summary.modelDistribution['lyria-3-pro-preview'], 3);
   assert.equal(summary.modelDistribution['lyria-3-clip-preview'], 4);
   assert.equal(summary.modelDistribution['gemini-3.8-flash-tts'], 1);
-
-  // Verify gemini-3.8-flash is restricted strictly to the 9 sub-second speed-critical agents
   assert.equal(summary.modelDistribution['gemini-3.8-flash'], 9);
 
   const validModelIds = new Set(STUDIO_MODEL_ARRAY.map((m) => m.id));
@@ -68,22 +64,27 @@ test('Team Orchestrator Multi-Model Array enforces Zero Cost-Cutting Policy and 
     assert.ok(validModelIds.has(agent.assignedModel));
     assert.ok(agent.modelSelectionReason.length > 20);
     assert.ok(agent.identityMandate.includes(agent.id));
+    assert.ok(
+      !agent.systemPrompt.toLowerCase().includes('three.js') &&
+        !agent.systemPrompt.toLowerCase().includes('webgl'),
+      `Agent ${agent.id} systemPrompt must not reference Three.js or WebGL`
+    );
   }
 });
 
-test('Batman: The Long Halloween Studio Sprint Report decomposes across all 12 teams and 150 agents', () => {
-  const report = generateStudioSprintReport();
-  assert.equal(report.totalAgentsDeployed, 150);
-  assert.equal(report.departments.length, 12);
-
-  const totalContribs = report.departments.reduce(
-    (sum, d) => sum + d.agentContributions.length,
-    0
+test('Preloaded Founder Directive references mounted 386-page Long Halloween PDF and wasm64/WebGPU/OPFS VFS with zero Three.js mentions', () => {
+  assert.equal(
+    DEFAULT_FOUNDER_DIRECTIVE_CONFIG.sourceComicPdfPath,
+    '/assets/aistudio/Batman_-_The_Long_Halloween_Deluxe_Edition__under_100_MB__b993ad16.pdf'
   );
-  assert.equal(totalContribs, 150);
-  assert.ok(report.departments[0].concreteArtifactContent.includes('Sole Playable'));
-  assert.ok(report.departments[5].concreteArtifactContent.includes('2.5D'));
-  assert.ok(report.departments[8].concreteArtifactContent.includes('WebRTC'));
+  assert.equal(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.sourceComicPages, 386);
+  assert.ok(
+    !DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText.toLowerCase().includes('three.js') &&
+      !DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText.toLowerCase().includes('threejs') &&
+      !DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText.toLowerCase().includes('webgl')
+  );
+  assert.ok(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText.includes('wasm64'));
+  assert.ok(DEFAULT_FOUNDER_DIRECTIVE_CONFIG.promptText.includes('WebGPU'));
 });
 
 test('buildNoviceLabsRepoFiles generates complete public repository tree including vercel.json and 150 agent files', () => {
@@ -96,7 +97,6 @@ test('buildNoviceLabsRepoFiles generates complete public repository tree includi
   assert.ok(repoFiles.some((f) => f.path === 'README.md'));
   assert.ok(repoFiles.some((f) => f.path === 'vercel.json'));
   assert.ok(repoFiles.some((f) => f.path === 'studio.manifest.json'));
-  assert.ok(repoFiles.some((f) => f.path === 'src/orchestrator/studioRunner.ts'));
 
   const audioOrch = filterAgents({ departmentId: 'audio-music-sound', onlyOrchestrators: true });
   assert.equal(audioOrch.length, 1);

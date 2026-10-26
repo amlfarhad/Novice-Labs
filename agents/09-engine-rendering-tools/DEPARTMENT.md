@@ -17,13 +17,13 @@
 | `NL-106` | `SOLVER-PHYSX` | Dr. Matteo Rossi | Physics Engine, Broadphase BVH & Collision Solver Engineer | `gemini-4-argon` |
 | `NL-107` | `POSE-KERNEL` | Sora Takahashi-Vance | Skeletal Animation Runtime, Skinning & IK Solver Engineer | `gemini-4-argon` |
 | `NL-108` | `ARCHETYPE-ECS` | Gideon Vance | Scene Graph & Entity-Component-System (ECS) Architecture Lead | `gemini-4-argon` |
-| `NL-109` | `STREAM-POOL` | Hanna Lindqvist | Level Streaming, Virtual Texturing & Memory Pool Engineer | `gemini-4-argon` |
+| `NL-109` | `STREAM-POOL` | Hanna Lindqvist | Level Streaming, 4KB Chunked VFS & OPFS Memory Pool Engineer | `gemini-4-argon` |
 | `NL-110` | `GLTF-INGEST` | Lucas Sterling | 3D Asset Conditioning, glTF 2.0 Importer & Meshopt Engineer | `gemini-4-argon` |
 | `NL-111` | `WORLD-GIZMO` | claire Vance-Moreau | Custom World Editor, Gizmo & Inspector Tools Developer | `gemini-4-argon` |
 | `NL-112` | `NODE-CANVAS` | Devon Sterling | Visual Node-Graph Scripting & Quest/Dialogue Tool Engineer | `gemini-4-argon` |
 | `NL-113` | `BUILD-ANVIL` | Marcus Okafor | Build Farm, CI/CD Pipeline & Artifact Caching Engineer | `gemini-4-argon` |
 | `NL-114` | `SENTINEL-DUMP` | Dr. Elena Kovacs | Crash Dump, Callstack Symbolication & Telemetry Diagnostics Engineer | `gemini-4-argon` |
-| `NL-115` | `HAL-BRIDGE` | Tariq Vance | Cross-Platform Hardware Abstraction Layer (HAL) Engineer | `gemini-4-argon` |
+| `NL-115` | `HAL-BRIDGE` | Tariq Vance | wasm64, pthreads Web Worker & WebGPU DX12/Vulkan Translation Engineer | `gemini-4-argon` |
 | `NL-116` | `FRAME-GRAPH` | Dr. Julian Lind | Render Graph, Transient Resource Aliasing & Frame-Pacing Optimizer | `gemini-4-argon` |
 | `NL-117` | `PCG-BIOME` | Rowan Sterling | Procedural Content Generation (PCG) & Biome Scatter Tool Engineer | `gemini-4-argon` |
 | `NL-118` | `SIMD-VECTOR` | Dr. Kazuki Sato | Math Library, SIMD/WASM Intrinsics & Spatial Indexing Specialist | `gemini-4-argon` |
